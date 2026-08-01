@@ -1,0 +1,23 @@
+name: Initialise Discord Dashboard
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  initialise:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Create Discord dashboard message
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SHEET_CSV_URL: ${{ secrets.SHEET_CSV_URL }}
+          DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
+          DASHBOARD_TITLE: ${{ vars.DASHBOARD_TITLE }}
+        run: node scripts/update-discord.mjs --init
