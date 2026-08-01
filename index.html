@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>RallyeAir Livery Progress Dashboard</title>
+  <style>
+    :root{
+      --bg:#0b1220;--panel:#121b2d;--panel2:#18233a;--text:#f8fafc;--muted:#94a3b8;
+      --border:#26334f;--accent:#38bdf8;--good:#22c55e;--warn:#f59e0b;--bad:#ef4444;
+      --purple:#a78bfa;--orange:#fb923c;--grey:#64748b;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(180deg,#08101e,#0b1220 35%);color:var(--text)}
+    .wrap{max-width:1320px;margin:0 auto;padding:28px 20px 48px}
+    .hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}
+    .hero h1{margin:0;font-size:clamp(1.8rem,3vw,3rem);letter-spacing:-.03em}
+    .hero p{margin:8px 0 0;color:var(--muted)}
+    .updated{font-size:.9rem;color:var(--muted);text-align:right}
+    .grid{display:grid;gap:16px}
+    .metrics{grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:16px}
+    .card{background:rgba(18,27,45,.92);border:1px solid var(--border);border-radius:18px;padding:18px}
+    .metric-label{font-size:.85rem;color:var(--muted);margin-bottom:10px}
+    .metric-value{font-size:2rem;font-weight:750}
+    .metric-sub{font-size:.8rem;color:var(--muted);margin-top:6px}
+    .content{grid-template-columns:1.1fr 1.9fr}
+    .panel-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+    .panel-title h2{margin:0;font-size:1rem}
+    .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+    select,input{background:#0f172a;color:var(--text);border:1px solid var(--border);border-radius:12px;padding:10px 12px;font:inherit}
+    input{min-width:220px;flex:1}
+    .status-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;margin:13px 0}
+    .status-label{display:flex;justify-content:space-between;gap:10px;font-size:.92rem}
+    .track{height:10px;background:#0f172a;border-radius:999px;overflow:hidden;border:1px solid #1e293b}
+    .fill{height:100%;border-radius:999px}
+    .table-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;min-width:940px}
+    th,td{text-align:left;padding:13px 12px;border-bottom:1px solid var(--border);font-size:.9rem;vertical-align:middle}
+    th{color:var(--muted);font-weight:650;position:sticky;top:0;background:var(--panel)}
+    tr:hover td{background:rgba(255,255,255,.018)}
+    .badge{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:.76rem;font-weight:700;white-space:nowrap}
+    .progress-wrap{display:flex;align-items:center;gap:10px;min-width:150px}
+    .progress-wrap .track{flex:1}
+    .progress-number{width:42px;text-align:right;color:var(--muted)}
+    .empty{padding:36px;text-align:center;color:var(--muted)}
+    .footer-note{margin-top:16px;color:var(--muted);font-size:.82rem}
+    @media(max-width:980px){.metrics{grid-template-columns:repeat(2,1fr)}.content{grid-template-columns:1fr}.hero{align-items:flex-start;flex-direction:column}.updated{text-align:left}}
+    @media(max-width:560px){.metrics{grid-template-columns:1fr}.wrap{padding:20px 12px}.card{border-radius:14px;padding:14px}}
+  </style>
+  <script src="config.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div>
+      <h1 id="pageTitle">RallyeAir Livery Progress</h1>
+      <p id="pageSubtitle">Live production dashboard for the RallyeAir fleet.</p>
+    </div>
+    <div class="updated" id="updated">Loading data…</div>
+  </header>
+
+  <section class="grid metrics">
+    <div class="card"><div class="metric-label">Total Liveries</div><div class="metric-value" id="mTotal">0</div><div class="metric-sub">All tracked projects</div></div>
+    <div class="card"><div class="metric-label">Released</div><div class="metric-value" id="mReleased">0</div><div class="metric-sub">Available on Discord</div></div>
+    <div class="card"><div class="metric-label">In Progress</div><div class="metric-value" id="mProgress">0</div><div class="metric-sub">Actively moving</div></div>
+    <div class="card"><div class="metric-label">Needs Rework</div><div class="metric-value" id="mRework">0</div><div class="metric-sub">Blocked by defects</div></div>
+    <div class="card"><div class="metric-label">Overall Completion</div><div class="metric-value" id="mCompletion">0%</div><div class="metric-sub">Average project completion</div></div>
+  </section>
+
+  <section class="grid content">
+    <div class="card">
+      <div class="panel-title"><h2>Production Pipeline</h2><span id="pipelineTotal" class="metric-sub"></span></div>
+      <div id="pipeline"></div>
+      <div class="footer-note">Counts update automatically from the published tracker data.</div>
+    </div>
+
+    <div class="card">
+      <div class="panel-title"><h2>Fleet Progress</h2></div>
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="Search aircraft, registration or developer">
+        <select id="statusFilter"><option value="">All statuses</option></select>
+        <select id="priorityFilter"><option value="">All priorities</option></select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Aircraft</th><th>Registration</th><th>Developer</th><th>Priority</th>
+              <th>Status</th><th>Progress</th><th>Next Task</th><th>Updated</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div id="empty" class="empty" hidden>No matching liveries.</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+/*
+  LIVE DATA SETUP
+  Replace the empty string below with a published Google Sheets CSV URL.
+  Example format:
+  https://docs.google.com/spreadsheets/d/SHEET_ID/export?format=csv&gid=0
+
+  Required column names:
+  Project ID, Aircraft, Variant / Model, Registration, Developer / Paint Kit,
+  Priority, Status, Progress, Current Task, Next Task, Last Updated, Notes
+*/
+const DATA_CSV_URL = (window.DASHBOARD_CONFIG && window.DASHBOARD_CONFIG.csvUrl && !window.DASHBOARD_CONFIG.csvUrl.startsWith("PASTE_")) ? window.DASHBOARD_CONFIG.csvUrl : "";
+
+const FALLBACK_DATA = [{"projectId": "LIV-001", "aircraft": "Airbus A320", "variant": "CEO", "registration": "VH-RWA", "developer": "Fenix", "priority": "High", "status": "Painting", "progress": 43, "currentTask": "Finish engine textures", "nextTask": "Run simulator test", "lastUpdated": "2026-08-01", "notes": "Example row"}, {"projectId": "LIV-002", "aircraft": "Airbus A321", "variant": "neo", "registration": "VH-RWQ", "developer": "FSLabs", "priority": "High", "status": "Testing", "progress": 71, "currentTask": "Check wing root alignment", "nextTask": "Create thumbnail", "lastUpdated": "2026-08-01", "notes": "Minor UV alignment issue"}, {"projectId": "LIV-003", "aircraft": "Airbus A350-900", "variant": "", "registration": "VH-R3A", "developer": "iniBuilds", "priority": "Medium", "status": "Not Started", "progress": 0, "currentTask": "", "nextTask": "Create PSD and import paint kit", "lastUpdated": "2026-08-01", "notes": ""}];
+
+const STATUS_ORDER = [
+  "Not Started","Templates","Painting","Testing",
+  "Thumbnail Required","Packaging","Released","Needs Rework"
+];
+
+const STATUS_STYLE = {
+  "Not Started": ["#64748b","#e2e8f0"],
+  "Templates": ["#2563eb","#dbeafe"],
+  "Painting": ["#7c3aed","#ede9fe"],
+  "Testing": ["#d97706","#fef3c7"],
+  "Thumbnail Required": ["#c2410c","#ffedd5"],
+  "Packaging": ["#6b21a8","#f3e8ff"],
+  "Released": ["#15803d","#dcfce7"],
+  "Needs Rework": ["#b91c1c","#fee2e2"]
+};
+
+let allData = [];
+
+function parseCSV(text){
+  const rows=[]; let row=[], field="", quote=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i], n=text[i+1];
+    if(c === '"' && quote && n === '"'){field+='"';i++}
+    else if(c === '"'){quote=!quote}
+    else if(c === ',' && !quote){row.push(field);field=""}
+    else if((c === '\n' || c === '\r') && !quote){
+      if(c === '\r' && n === '\n') i++;
+      row.push(field); field="";
+      if(row.some(v=>v.trim()!=="")) rows.push(row);
+      row=[];
+    } else field+=c;
+  }
+  if(field || row.length){row.push(field);rows.push(row)}
+  const headers=rows.shift().map(h=>h.trim());
+  return rows.map(r=>Object.fromEntries(headers.map((h,i)=>[h,(r[i]||"").trim()])));
+}
+
+function normalise(r){
+  const pRaw = r["Progress"] ?? r.progress ?? 0;
+  let p = typeof pRaw === "number" ? pRaw : parseFloat(String(pRaw).replace("%",""));
+  if(!Number.isFinite(p)) p=0;
+  if(p <= 1) p *= 100;
+  return {
+    projectId: r["Project ID"] ?? r.projectId ?? "",
+    aircraft: r["Aircraft"] ?? r.aircraft ?? "",
+    variant: r["Variant / Model"] ?? r.variant ?? "",
+    registration: r["Registration"] ?? r.registration ?? "",
+    developer: r["Developer / Paint Kit"] ?? r.developer ?? "",
+    priority: r["Priority"] ?? r.priority ?? "",
+    status: r["Status"] ?? r.status ?? "Not Started",
+    progress: Math.max(0,Math.min(100,Math.round(p))),
+    currentTask: r["Current Task"] ?? r.currentTask ?? "",
+    nextTask: r["Next Task"] ?? r.nextTask ?? "",
+    lastUpdated: r["Last Updated"] ?? r.lastUpdated ?? "",
+    notes: r["Notes"] ?? r.notes ?? ""
+  };
+}
+
+function badge(text, kind){
+  let bg="#e2e8f0", color="#334155";
+  if(kind==="status" && STATUS_STYLE[text]) [color,bg]=STATUS_STYLE[text];
+  if(kind==="priority"){
+    if(text==="High"){color="#b91c1c";bg="#fee2e2"}
+    if(text==="Medium"){color="#b45309";bg="#fef3c7"}
+    if(text==="Low"){color="#15803d";bg="#dcfce7"}
+  }
+  return `<span class="badge" style="color:${color};background:${bg}">${escapeHTML(text||"—")}</span>`;
+}
+
+function escapeHTML(v){
+  return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]));
+}
+
+function renderMetrics(data){
+  const total=data.length;
+  const released=data.filter(x=>x.status==="Released").length;
+  const rework=data.filter(x=>x.status==="Needs Rework").length;
+  const inProgress=data.filter(x=>!["Released","Not Started","Needs Rework"].includes(x.status)).length;
+  const completion=total ? Math.round(data.reduce((s,x)=>s+x.progress,0)/total) : 0;
+  mTotal.textContent=total; mReleased.textContent=released; mProgress.textContent=inProgress;
+  mRework.textContent=rework; mCompletion.textContent=completion+"%";
+  pipelineTotal.textContent=total+" total";
+}
+
+function renderPipeline(data){
+  pipeline.innerHTML = STATUS_ORDER.map(status=>{
+    const count=data.filter(x=>x.status===status).length;
+    const pct=data.length ? Math.round(count/data.length*100) : 0;
+    const [color] = STATUS_STYLE[status];
+    return `<div class="status-row">
+      <div>
+        <div class="status-label"><span>${escapeHTML(status)}</span><span>${count}</span></div>
+        <div class="track"><div class="fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>
+      <div class="progress-number">${pct}%</div>
+    </div>`;
+  }).join("");
+}
+
+function renderTable(){
+  const q=search.value.trim().toLowerCase();
+  const sf=statusFilter.value, pf=priorityFilter.value;
+  const filtered=allData.filter(x=>{
+    const hay=[x.aircraft,x.variant,x.registration,x.developer,x.nextTask].join(" ").toLowerCase();
+    return (!q || hay.includes(q)) && (!sf || x.status===sf) && (!pf || x.priority===pf);
+  });
+
+  rows.innerHTML=filtered.map(x=>`
+    <tr>
+      <td><strong>${escapeHTML(x.aircraft)}</strong>${x.variant?`<div class="metric-sub">${escapeHTML(x.variant)}</div>`:""}</td>
+      <td>${escapeHTML(x.registration||"—")}</td>
+      <td>${escapeHTML(x.developer||"—")}</td>
+      <td>${badge(x.priority,"priority")}</td>
+      <td>${badge(x.status,"status")}</td>
+      <td>
+        <div class="progress-wrap">
+          <div class="track"><div class="fill" style="width:${x.progress}%;background:var(--accent)"></div></div>
+          <div class="progress-number">${x.progress}%</div>
+        </div>
+      </td>
+      <td>${escapeHTML(x.nextTask||"—")}</td>
+      <td>${escapeHTML(x.lastUpdated||"—")}</td>
+    </tr>`).join("");
+  empty.hidden=filtered.length!==0;
+}
+
+function populateFilters(data){
+  [...new Set(data.map(x=>x.status).filter(Boolean))].sort().forEach(v=>{
+    statusFilter.insertAdjacentHTML("beforeend",`<option>${escapeHTML(v)}</option>`)
+  });
+  ["High","Medium","Low"].forEach(v=>{
+    if(data.some(x=>x.priority===v)) priorityFilter.insertAdjacentHTML("beforeend",`<option>${v}</option>`)
+  });
+}
+
+async function load(){
+  if(window.DASHBOARD_CONFIG){
+    if(window.DASHBOARD_CONFIG.title) document.getElementById("pageTitle").textContent=window.DASHBOARD_CONFIG.title;
+    if(window.DASHBOARD_CONFIG.subtitle) document.getElementById("pageSubtitle").textContent=window.DASHBOARD_CONFIG.subtitle;
+  }
+  let raw=FALLBACK_DATA;
+  let source="Embedded snapshot";
+  if(DATA_CSV_URL){
+    try{
+      const res=await fetch(DATA_CSV_URL,{cache:"no-store"});
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      raw=parseCSV(await res.text());
+      source="Live published sheet";
+    }catch(e){
+      console.warn("Live data failed; using fallback.",e);
+      source="Fallback snapshot";
+    }
+  }
+  allData=raw.map(normalise).filter(x=>x.aircraft || x.registration);
+  populateFilters(allData); renderMetrics(allData); renderPipeline(allData); renderTable();
+  updated.textContent=`${source} • Updated ${new Date().toLocaleString()}`;
+}
+
+[search,statusFilter,priorityFilter].forEach(el=>el.addEventListener("input",renderTable));
+load();
+const refreshMs = ((window.DASHBOARD_CONFIG && window.DASHBOARD_CONFIG.refreshMinutes) || 5) * 60 * 1000;
+setInterval(load, refreshMs);
+</script>
+</body>
+</html>
